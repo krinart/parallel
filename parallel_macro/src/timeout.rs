@@ -66,7 +66,7 @@ pub(crate) fn timeout(input: TokenStream) -> TokenStream {
             }
         },
         TimeoutFallback::Else(fallback_expr) => {
-            // Use custom fallback on timeout
+            // Use custom fallback on timeout, but wrap in Result
             quote! {
                 {
                     use tokio::time::timeout;
@@ -78,12 +78,12 @@ pub(crate) fn timeout(input: TokenStream) -> TokenStream {
                     // Wrap the body in an async block and apply timeout
                     let timeout_future = timeout(duration_secs, async { #body });
                     
-                    // Await and either return the result or use the fallback
+                    // Await and return wrapped in Result
                     match timeout_future.await {
-                        Ok(result) => result,
-                        Err(_) => {
+                        Ok(result) => Ok(result),
+                        Err(_) => Err({
                             #fallback_expr
-                        }
+                        })
                     }
                 }
             }

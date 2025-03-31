@@ -48,14 +48,20 @@ async fn main() {
     //     get_followers(user_id),
     // };
 
-    let result: Result<i32, i32> = timeout!(1, { 
+    let result: Result<i32, String> = timeout!(1, { 
             get_data().await 
         } else {
-            println!("Timeout occurred!");
-            42
+            String::from("too long!")
         }
     ); 
-    println!("{}", result);
+    match result {
+        Ok(val) => {
+            println!("Sucess: {}", val);
+        },
+        Err(val) => {
+            println!("timeout: {}", val);
+        }
+    }
 
 
 }
