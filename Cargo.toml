@@ -1,0 +1,19 @@
+[workspace]
+members = [
+    ".",
+    "parallel_macro"
+]
+
+[package]
+name = "hello_world"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "hello_world"
+path = "src/hello_world_main.rs"
+
+[dependencies]
+tokio = { version = "1.28", features = ["full"] }
+futures = "0.3"
+parallel_macro = { path = "./parallel_macro" }

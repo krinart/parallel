@@ -1,0 +1,49 @@
+use parallel_macro::parallel;
+use parallel_macro::timeout;
+use std::time::Duration;
+
+async fn get_posts(user_id: u64) -> Vec<String> {
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    vec![format!("Post 1 for user {}", user_id), format!("Post 2 for user {}", user_id)]
+}
+
+async fn get_followers(user_id: u64) -> Vec<String> {
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    vec![format!("Follower 1 of user {}", user_id), format!("Follower 2 of user {}", user_id)]
+}
+
+#[tokio::main]
+async fn main() {
+    let user_id = 123;
+    
+    // Run futures in parallel and wait for both to complete
+    let (posts, followers, followers2) = parallel! { 
+        get_posts(user_id), 
+        get_followers(user_id),
+        get_followers(user_id),
+    };
+    
+    println!("User has {} posts:", posts.len());
+    for post in posts {
+        println!("  - {}", post);
+    }
+    
+    println!("User has {} followers:", followers.len());
+    for follower in followers {
+        println!("  - {}", follower);
+    }
+
+    println!("User has {} followers:", followers2.len());
+    for follower in followers2 {
+        println!("  - {}", follower);
+    }
+
+
+    timeout(5) {
+        // Some potentially long operation
+        let data = fetch_data();
+        let processed = process(data);
+    }
+
+
+}
