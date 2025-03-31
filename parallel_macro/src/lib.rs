@@ -14,7 +14,7 @@ pub fn timeout(input: TokenStream) -> TokenStream {
     timeout::timeout(input)
 }
 
-// #[proc_macro]
-// pub fn timeout_dynamic(input: TokenStream) -> TokenStream {
-//     timeout::timeout_dynamic(input)
-// }
+#[proc_macro]
+pub fn timeout_fallback(input: TokenStream) -> TokenStream {
+    timeout::timeout_fallback(input)
+}

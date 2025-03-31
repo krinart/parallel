@@ -8,6 +8,7 @@ enum TimeoutFallback {
     Else(Expr),
 }
 
+// Input struct for the standard timeout macro (optional fallback)
 struct TimeoutInput {
     duration: Expr,
     body: Expr,
@@ -39,6 +40,35 @@ impl Parse for TimeoutInput {
     }
 }
 
+// Input struct for timeout_fallback macro (required fallback)
+struct TimeoutFallbackInput {
+    duration: Expr,
+    body: Expr,
+    fallback: Expr,
+}
+
+impl Parse for TimeoutFallbackInput {
+    fn parse(input: ParseStream) -> Result<Self> {
+        // Parse duration
+        let duration = input.parse()?;
+        input.parse::<Token![,]>()?;
+        
+        // Parse body
+        let body = input.parse()?;
+        
+        // Parse required else clause
+        input.parse::<Token![else]>()?;
+        let fallback = input.parse()?;
+        
+        Ok(TimeoutFallbackInput {
+            duration,
+            body,
+            fallback,
+        })
+    }
+}
+
+/// Original timeout macro that returns a Result
 pub(crate) fn timeout(input: TokenStream) -> TokenStream {
     let TimeoutInput { duration, body, fallback } = parse_macro_input!(input as TimeoutInput);
     
@@ -85,6 +115,36 @@ pub(crate) fn timeout(input: TokenStream) -> TokenStream {
                             #fallback_expr
                         })
                     }
+                }
+            }
+        }
+    };
+    
+    TokenStream::from(expanded)
+}
+
+/// New timeout_fallback macro that directly returns the fallback value
+/// This always requires an else clause
+pub(crate) fn timeout_fallback(input: TokenStream) -> TokenStream {
+    let TimeoutFallbackInput { duration, body, fallback } = parse_macro_input!(input as TimeoutFallbackInput);
+    
+    // Use custom fallback on timeout - direct return, no Result wrapping
+    let expanded = quote! {
+        {
+            use tokio::time::timeout;
+            use std::time::Duration;
+            
+            // Convert the numeric duration to seconds
+            let duration_secs = Duration::from_secs(#duration as u64);
+            
+            // Wrap the body in an async block and apply timeout
+            let timeout_future = timeout(duration_secs, async { #body });
+            
+            // Await and return directly
+            match timeout_future.await {
+                Ok(result) => result,
+                Err(_) => {
+                    #fallback
                 }
             }
         }

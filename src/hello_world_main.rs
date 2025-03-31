@@ -1,5 +1,6 @@
 use parallel_macro::parallel;
 use parallel_macro::timeout;
+use parallel_macro::timeout_fallback;
 use std::time::Duration;
 
 async fn get_posts(user_id: u64) -> Vec<String> {
@@ -76,5 +77,10 @@ async fn main() {
     }
 
 
-
+    let result3: i32 = timeout_fallback!(1, { 
+        get_data().await 
+    } else {
+        42
+    });
+    println!("result3: {}", result3);
 }
