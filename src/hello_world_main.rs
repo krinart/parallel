@@ -43,7 +43,7 @@ async fn main() {
     process_data(&posts, &followers);
 
     let result: Result<i32, String> = timeout!(1, { 
-            get_data().await 
+            get_data()
         } else {
             String::from("too long!")
         }
@@ -57,28 +57,28 @@ async fn main() {
         }
     }
 
-    let result2: Result<(Vec<String>, Vec<String>), String>  = timeout!(1, { 
-        parallel! { 
-            get_posts(user_id), 
-            get_followers(user_id),
-        }
-    } else {
-        String::from("too long #2!")
-    });
+    // let result2: Result<(Vec<String>, Vec<String>), String>  = timeout!(1, { 
+    //     parallel! { 
+    //         get_posts(user_id), 
+    //         get_followers(user_id),
+    //     }
+    // } else {
+    //     String::from("too long #2!")
+    // });
 
     
-    match result2 {
-        Ok((posts, followers)) => {
-            process_data(&posts, &followers);
-        },
-        Err(err) => {
-            println!("timeout2: {}", err);
-        }
-    }
+    // match result2 {
+    //     Ok((posts, followers)) => {
+    //         process_data(&posts, &followers);
+    //     },
+    //     Err(err) => {
+    //         println!("timeout2: {}", err);
+    //     }
+    // }
 
 
     let result3: i32 = timeout_fallback!(1, { 
-        get_data().await 
+        get_data()
     } else {
         42
     });

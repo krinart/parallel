@@ -1,6 +1,6 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{parse_macro_input, Expr, Token, parse::{Parse, ParseStream}, Result, bracketed, ExprBlock};
 
 enum TimeoutFallback {
@@ -83,14 +83,36 @@ pub(crate) fn timeout(input: TokenStream) -> TokenStream {
                     // Convert the numeric duration to seconds
                     let duration_secs = Duration::from_secs(#duration as u64);
                     
-                    // Wrap the body in an async block and apply timeout
-                    let timeout_future = timeout(duration_secs, async { #body });
-                    
-                    // Return a Result
-                    match timeout_future.await {
-                        Ok(result) => Ok(result),
-                        Err(_) => Err(std::io::Error::new(std::io::ErrorKind::TimedOut, 
-                            format!("Operation timed out after {} seconds", #duration))),
+                    // Check if we're inside a runtime or need to create one
+                    if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                        // We're in a runtime, use the current handle to enter it
+                        let _guard = handle.enter();
+                        
+                        // Apply timeout to the future and execute it "immediately" using spawn_blocking
+                        tokio::task::block_in_place(|| {
+                            handle.block_on(async {
+                                let body_future = #body;
+                                let timeout_future = timeout(duration_secs, body_future);
+                                
+                                match timeout_future.await {
+                                    Ok(result) => Ok(result),
+                                    Err(_) => Err(format!("Operation timed out after {} seconds", #duration)),
+                                }
+                            })
+                        })
+                    } else {
+                        // Not in a runtime, create a new one
+                        tokio::runtime::Runtime::new()
+                            .unwrap()
+                            .block_on(async {
+                                let body_future = #body;
+                                let timeout_future = timeout(duration_secs, body_future);
+                                
+                                match timeout_future.await {
+                                    Ok(result) => Ok(result),
+                                    Err(_) => Err(format!("Operation timed out after {} seconds", #duration)),
+                                }
+                            })
                     }
                 }
             }
@@ -105,15 +127,40 @@ pub(crate) fn timeout(input: TokenStream) -> TokenStream {
                     // Convert the numeric duration to seconds
                     let duration_secs = Duration::from_secs(#duration as u64);
                     
-                    // Wrap the body in an async block and apply timeout
-                    let timeout_future = timeout(duration_secs, async { #body });
-                    
-                    // Await and return wrapped in Result
-                    match timeout_future.await {
-                        Ok(result) => Ok(result),
-                        Err(_) => Err({
-                            #fallback_expr
+                    // Check if we're inside a runtime or need to create one
+                    if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                        // We're in a runtime, use the current handle to enter it
+                        let _guard = handle.enter();
+                        
+                        // Apply timeout to the future and execute it "immediately" using spawn_blocking
+                        tokio::task::block_in_place(|| {
+                            handle.block_on(async {
+                                let body_future = #body;
+                                let timeout_future = timeout(duration_secs, body_future);
+                                
+                                match timeout_future.await {
+                                    Ok(result) => Ok(result),
+                                    Err(_) => Err({
+                                        #fallback_expr
+                                    }),
+                                }
+                            })
                         })
+                    } else {
+                        // Not in a runtime, create a new one
+                        tokio::runtime::Runtime::new()
+                            .unwrap()
+                            .block_on(async {
+                                let body_future = #body;
+                                let timeout_future = timeout(duration_secs, body_future);
+                                
+                                match timeout_future.await {
+                                    Ok(result) => Ok(result),
+                                    Err(_) => Err({
+                                        #fallback_expr
+                                    }),
+                                }
+                            })
                     }
                 }
             }
@@ -124,7 +171,7 @@ pub(crate) fn timeout(input: TokenStream) -> TokenStream {
 }
 
 /// New timeout_fallback macro that directly returns the fallback value
-/// This always requires an else clause
+/// This always requires an else clause and does not need to be awaited
 pub(crate) fn timeout_fallback(input: TokenStream) -> TokenStream {
     let TimeoutFallbackInput { duration, body, fallback } = parse_macro_input!(input as TimeoutFallbackInput);
     
@@ -137,15 +184,40 @@ pub(crate) fn timeout_fallback(input: TokenStream) -> TokenStream {
             // Convert the numeric duration to seconds
             let duration_secs = Duration::from_secs(#duration as u64);
             
-            // Wrap the body in an async block and apply timeout
-            let timeout_future = timeout(duration_secs, async { #body });
-            
-            // Await and return directly
-            match timeout_future.await {
-                Ok(result) => result,
-                Err(_) => {
-                    #fallback
-                }
+            // Check if we're inside a runtime or need to create one
+            if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                // We're in a runtime, use the current handle to enter it
+                let _guard = handle.enter();
+                
+                // Apply timeout to the future and execute it "immediately" using spawn_blocking
+                tokio::task::block_in_place(|| {
+                    handle.block_on(async {
+                        let body_future = #body;
+                        let timeout_future = timeout(duration_secs, body_future);
+                        
+                        match timeout_future.await {
+                            Ok(result) => result,
+                            Err(_) => {
+                                #fallback
+                            }
+                        }
+                    })
+                })
+            } else {
+                // Not in a runtime, create a new one
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(async {
+                        let body_future = #body;
+                        let timeout_future = timeout(duration_secs, body_future);
+                        
+                        match timeout_future.await {
+                            Ok(result) => result,
+                            Err(_) => {
+                                #fallback
+                            }
+                        }
+                    })
             }
         }
     };
