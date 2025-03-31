@@ -13,3 +13,8 @@ pub fn parallel(input: TokenStream) -> TokenStream {
 pub fn timeout(input: TokenStream) -> TokenStream {
     timeout::timeout(input)
 }
+
+// #[proc_macro]
+// pub fn timeout_dynamic(input: TokenStream) -> TokenStream {
+//     timeout::timeout_dynamic(input)
+// }

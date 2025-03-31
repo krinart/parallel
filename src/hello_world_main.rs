@@ -12,6 +12,11 @@ async fn get_followers(user_id: u64) -> Vec<String> {
     vec![format!("Follower 1 of user {}", user_id), format!("Follower 2 of user {}", user_id)]
 }
 
+async fn get_data() -> Vec<String> {
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    vec![format!("Follower")]
+}
+
 #[tokio::main]
 async fn main() {
     let user_id = 123;
@@ -38,12 +43,15 @@ async fn main() {
         println!("  - {}", follower);
     }
 
+    // let (posts2, followers2) = parallel! { 
+    //     get_posts(user_id), 
+    //     get_followers(user_id),
+    // };
 
-    timeout(5) {
-        // Some potentially long operation
-        let data = fetch_data();
-        let processed = process(data);
-    }
+    let result = timeout!(5, { 
+        get_data().await 
+    }); 
+    println!("{}", result);
 
 
 }
