@@ -4,6 +4,7 @@ use proc_macro::TokenStream;
 mod parallel;
 mod timeout;
 mod first;
+mod timeout_with_result;
 
 #[proc_macro]
 pub fn parallel(input: TokenStream) -> TokenStream {
@@ -30,8 +31,10 @@ pub fn first(input: TokenStream) -> TokenStream {
     first::first(input)
 }
 
-
-
+#[proc_macro]
+pub fn timeout_with_result(input: TokenStream) -> TokenStream {
+    timeout_with_result::timeout_with_result(input)
+}
 
 
 use quote::{quote};

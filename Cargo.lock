@@ -157,6 +157,7 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "parallel_macro",
+ "parallel_macro_core",
  "tokio",
 ]
 
@@ -213,6 +214,18 @@ dependencies = [
 
 [[package]]
 name = "parallel_macro"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "parallel_macro_core",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "tokio",
+]
+
+[[package]]
+name = "parallel_macro_core"
 version = "0.1.0"
 dependencies = [
  "futures",

@@ -17,3 +17,4 @@ path = "src/hello_world_main.rs"
 tokio = { version = "1.28", features = ["full"] }
 futures = "0.3"
 parallel_macro = { path = "./parallel_macro" }
+parallel_macro_core = { path = "./parallel_macro_core" }

@@ -3,8 +3,10 @@ use parallel_macro::parallel;
 use parallel_macro::timeout;
 use parallel_macro::timeout_fallback;
 use parallel_macro::timeout_value;
+use parallel_macro::timeout_with_result;
 use parallel_macro::first;
 use parallel_macro::my_test_timeout;
+use parallel_macro_core::TimeoutResult;
 use std::time::Duration;
 
 async fn get_posts(user_id: u64) -> Vec<String> {
@@ -99,10 +101,37 @@ async fn get_data2(t: u64) -> u64 {
     t
 }
 
+struct CustomError {error: String}
+
+async fn get_data_3(t: u64) -> Result<u64, CustomError> {
+    tokio::time::sleep(Duration::from_millis(t)).await;
+    Ok(t)
+}
+
 #[tokio::main]
 async fn main() {
     
     // test_parallel_timeout().await;
+
+    let r2 = timeout_with_result!(1 {
+        get_data_3(1100)
+    } else {
+        println!("Timeout happened?!");
+        Ok(123)
+        // Err(CustomError{error: String::from("timeout!!")})
+    });
+
+    match r2 {
+        TimeoutResult::Success(val) => println!("success: {}", val),
+        
+        // function error
+        TimeoutResult::Error(CustomError{error}) => println!("err: {}", error),
+        
+        // timeout error
+        TimeoutResult::TimedOut => println!("timeout"),
+    }
+
+
 
     let result: Result<u64, String> = first!({
         get_data2(1000),
@@ -124,17 +153,6 @@ async fn main() {
             println!("more_async_work() completed first")
         }
     };
-
-
-
-    // let res = parallel! {
-    //     3
-    // }
-
-
-    // my_test_timeout!( 1 {
-    // } else {
-    // });
 
     println!("Finish");
     
