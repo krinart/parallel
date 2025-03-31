@@ -3,7 +3,7 @@ use parallel_macro::timeout;
 use std::time::Duration;
 
 async fn get_posts(user_id: u64) -> Vec<String> {
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::sleep(Duration::from_millis(1100)).await;
     vec![format!("Post 1 for user {}", user_id), format!("Post 2 for user {}", user_id)]
 }
 
@@ -17,17 +17,7 @@ async fn get_data() -> i32 {
     100
 }
 
-#[tokio::main]
-async fn main() {
-    let user_id = 123;
-    
-    // Run futures in parallel and wait for both to complete
-    let (posts, followers, followers2) = parallel! { 
-        get_posts(user_id), 
-        get_followers(user_id),
-        get_followers(user_id),
-    };
-    
+fn process_data(posts: &Vec<String>, followers: &Vec<String>) {
     println!("User has {} posts:", posts.len());
     for post in posts {
         println!("  - {}", post);
@@ -37,16 +27,19 @@ async fn main() {
     for follower in followers {
         println!("  - {}", follower);
     }
+}
 
-    println!("User has {} followers:", followers2.len());
-    for follower in followers2 {
-        println!("  - {}", follower);
-    }
-
-    // let (posts2, followers2) = parallel! { 
-    //     get_posts(user_id), 
-    //     get_followers(user_id),
-    // };
+#[tokio::main]
+async fn main() {
+    let user_id = 123;
+    
+    // Run futures in parallel and wait for both to complete
+    let (posts, followers) = parallel! { 
+        get_posts(user_id), 
+        get_followers(user_id),
+    };
+    
+    process_data(&posts, &followers);
 
     let result: Result<i32, String> = timeout!(1, { 
             get_data().await 
@@ -58,10 +51,30 @@ async fn main() {
         Ok(val) => {
             println!("Sucess: {}", val);
         },
-        Err(val) => {
-            println!("timeout: {}", val);
+        Err(err) => {
+            println!("timeout: {}", err);
         }
     }
+
+    let result2: Result<(Vec<String>, Vec<String>), String>  = timeout!(1, { 
+        parallel! { 
+            get_posts(user_id), 
+            get_followers(user_id),
+        }
+    } else {
+        String::from("too long #2!")
+    });
+
+    
+    match result2 {
+        Ok((posts, followers)) => {
+            process_data(&posts, &followers);
+        },
+        Err(err) => {
+            println!("timeout2: {}", err);
+        }
+    }
+
 
 
 }
