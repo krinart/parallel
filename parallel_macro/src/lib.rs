@@ -3,6 +3,7 @@ use proc_macro::TokenStream;
 
 mod parallel;
 mod timeout;
+mod first;
 
 #[proc_macro]
 pub fn parallel(input: TokenStream) -> TokenStream {
@@ -22,6 +23,11 @@ pub fn timeout_fallback(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn timeout_value(input: TokenStream) -> TokenStream {
     timeout::timeout_value(input)
+}
+
+#[proc_macro]
+pub fn first(input: TokenStream) -> TokenStream {
+    first::first(input)
 }
 
 

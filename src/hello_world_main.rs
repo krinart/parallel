@@ -3,6 +3,7 @@ use parallel_macro::parallel;
 use parallel_macro::timeout;
 use parallel_macro::timeout_fallback;
 use parallel_macro::timeout_value;
+use parallel_macro::first;
 use parallel_macro::my_test_timeout;
 use std::time::Duration;
 
@@ -36,8 +37,6 @@ fn process_data(posts: &Vec<String>, followers: &Vec<String>) {
 async fn test_parallel_timeout() {
     let user_id = 123;
     
-    
-    
     // Case #1: Parallel
     let (posts, followers) = parallel! { 
         get_posts(user_id), 
@@ -55,12 +54,8 @@ async fn test_parallel_timeout() {
         String::from("too long!")
     }); 
     match result {
-        Ok(val) => {
-            println!("Sucess: {}", val);
-        },
-        Err(err) => {
-            println!("timeout: {}", err);
-        }
+        Ok(val) => println!("Sucess: {}", val),
+        Err(err) => println!("timeout: {}", err),
     }
 
     // Case #3: Timeout with value fallback
@@ -79,12 +74,8 @@ async fn test_parallel_timeout() {
     });
     
     match result4 {
-        Ok(val) => {
-            println!("Sucess #4: {}", val);
-        },
-        Err(err) => {
-            println!("timeout #4: {}", err);
-        }
+        Ok(val) => println!("Sucess #4: {}", val),
+        Err(err) => println!("timeout #4: {}", err),
     }
 
     // Case #5: Timeout with parallel
@@ -98,20 +89,48 @@ async fn test_parallel_timeout() {
     });
 
     match result5 {
-        Ok((posts, followers)) => {
-            process_data(&posts, &followers);
-        },
-        Err(err) => {
-            println!("timeout2: {}", err);
-        }
+        Ok((posts, followers)) => process_data(&posts, &followers),
+        Err(err) => println!("timeout2: {}", err),
     }
 }
 
+async fn get_data2(t: u64) -> u64 {
+    tokio::time::sleep(Duration::from_millis(t)).await;
+    t
+}
 
 #[tokio::main]
 async fn main() {
     
-    test_parallel_timeout().await;
+    // test_parallel_timeout().await;
+
+    let result: Result<u64, String> = first!({
+        get_data2(1000),
+        get_data2(2000)
+    } else {
+        String::from("everything failed")
+    });
+    match result {
+        Ok(val) => println!("success: {}", val),
+        Err(err) => println!("failure: {}", err),
+    }
+
+
+    tokio::select! {
+        _ = get_data2(10) => {
+            println!("do_stuff_async() completed first")
+        }
+        _ = get_data2(100) => {
+            println!("more_async_work() completed first")
+        }
+    };
+
+
+
+    // let res = parallel! {
+    //     3
+    // }
+
 
     // my_test_timeout!( 1 {
     // } else {
