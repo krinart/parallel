@@ -1,143 +1,47 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, braced, Expr, Token, parse::Parse, parse::ParseStream, Result, Ident, Block, Stmt};
+use syn::{parse_macro_input, Expr, Token, parse::{Parse, ParseStream}, Result};
 
-struct TimeoutElseInput {
+struct TimeoutInput {
     duration: Expr,
-    main_block: Vec<Stmt>,
-    else_block: Option<Vec<Stmt>>,
+    body: Expr,
 }
 
-impl Parse for TimeoutElseInput {
+impl Parse for TimeoutInput {
     fn parse(input: ParseStream) -> Result<Self> {
-        // Parse the duration
         let duration = input.parse()?;
         input.parse::<Token![,]>()?;
+        let body = input.parse()?;
         
-        // Parse the main block within braces
-        let main_content;
-        let _ = braced!(main_content in input);
-        
-        // Parse all statements in the block
-        let mut main_stmts = Vec::new();
-        while !main_content.is_empty() {
-            main_stmts.push(main_content.parse()?);
-        }
-        
-        // Check if there's an else block
-        let mut else_stmts = None;
-        if !input.is_empty() {
-            // Parse the 'else' keyword
-            let else_kw: Ident = input.parse()?;
-            if else_kw != "else" {
-                return Err(syn::Error::new_spanned(else_kw, "Expected 'else' keyword"));
-            }
-            
-            // Parse the else block within braces
-            let else_content;
-            let _ = braced!(else_content in input);
-            
-            // Parse all statements in the else block
-            let mut stmts = Vec::new();
-            while !else_content.is_empty() {
-                stmts.push(else_content.parse()?);
-            }
-            else_stmts = Some(stmts);
-        }
-        
-        Ok(TimeoutElseInput {
+        Ok(TimeoutInput {
             duration,
-            main_block: main_stmts,
-            else_block: else_stmts,
+            body,
         })
     }
 }
 
 pub(crate) fn timeout(input: TokenStream) -> TokenStream {
-    let TimeoutElseInput { duration, main_block, else_block } = parse_macro_input!(input as TimeoutElseInput);
+    let TimeoutInput { duration, body } = parse_macro_input!(input as TimeoutInput);
     
-    let main_stmts = &main_block;
-    
-    let result = if let Some(else_stmts) = else_block {
-        // With else block - use match for handling
-        quote! {
-            {
-                use tokio::time::timeout;
-                use std::time::Duration;
-                
-                let duration_secs = Duration::from_secs(#duration as u64);
-                
-                match timeout(duration_secs, async {
-                    #(#main_stmts)*
-                }).await {
-                    Ok(result) => result,
-                    Err(_) => {
-                        #(#else_stmts)*
-                    }
-                }
-            }
-        }
-    } else {
-        // No else block - automatically unwrap the result (will panic on timeout)
-        quote! {
-            {
-                use tokio::time::timeout;
-                use std::time::Duration;
-                
-                let duration_secs = Duration::from_secs(#duration as u64);
-                
-                match timeout(duration_secs, async {
-                    #(#main_stmts)*
-                }).await {
-                    Ok(result) => result,
-                    Err(_) => panic!("Operation timed out after {} seconds", #duration),
-                }
+    let expanded = quote! {
+        {
+            use tokio::time::timeout;
+            use std::time::Duration;
+            
+            // Convert the numeric duration to seconds
+            let duration_secs = Duration::from_secs(#duration as u64);
+            
+            // Wrap the body in an async block and apply timeout
+            let timeout_future = timeout(duration_secs, async { #body });
+            
+            // Await and unwrap the result
+            match timeout_future.await {
+                Ok(result) => result,
+                Err(_) => panic!("Operation timed out after {} seconds", #duration),
             }
         }
     };
     
-    TokenStream::from(result)
-}
-
-// Non-panicking version that returns a Result
-pub(crate) fn timeout_result(input: TokenStream) -> TokenStream {
-    let TimeoutElseInput { duration, main_block, else_block } = parse_macro_input!(input as TimeoutElseInput);
-    
-    let main_stmts = &main_block;
-    
-    let result = if let Some(else_stmts) = else_block {
-        quote! {
-            {
-                use tokio::time::timeout;
-                use std::time::Duration;
-                
-                let duration_secs = Duration::from_secs(#duration as u64);
-                
-                match timeout(duration_secs, async {
-                    #(#main_stmts)*
-                }).await {
-                    Ok(result) => Ok(result),
-                    Err(e) => {
-                        #(#else_stmts)*
-                    }
-                }
-            }
-        }
-    } else {
-        quote! {
-            {
-                use tokio::time::timeout;
-                use std::time::Duration;
-                
-                let duration_secs = Duration::from_secs(#duration as u64);
-                
-                timeout(duration_secs, async {
-                    #(#main_stmts)*
-                }).await
-            }
-        }
-    };
-    
-    TokenStream::from(result)
+    TokenStream::from(expanded)
 }

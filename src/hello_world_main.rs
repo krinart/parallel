@@ -12,9 +12,9 @@ async fn get_followers(user_id: u64) -> Vec<String> {
     vec![format!("Follower 1 of user {}", user_id), format!("Follower 2 of user {}", user_id)]
 }
 
-async fn get_data() -> Vec<String> {
+async fn get_data() -> i32 {
     tokio::time::sleep(Duration::from_millis(150)).await;
-    vec![format!("Follower")]
+    100
 }
 
 #[tokio::main]
