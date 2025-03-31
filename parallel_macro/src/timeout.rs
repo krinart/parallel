@@ -1,7 +1,7 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
-use syn::{parse_macro_input, Expr, Token, parse::{Parse, ParseStream}, Result, bracketed, ExprBlock};
+use quote::{quote};
+use syn::{parse_macro_input, Expr, Token, parse::{Parse, ParseStream}, Result};
 
 enum TimeoutFallback {
     None,
@@ -224,3 +224,250 @@ pub(crate) fn timeout_fallback(input: TokenStream) -> TokenStream {
     
     TokenStream::from(expanded)
 }
+
+
+pub(crate) fn timeout_value(input: TokenStream) -> TokenStream {
+    let TimeoutInput { duration, body, fallback } = parse_macro_input!(input as TimeoutInput);
+    
+    let expanded = match fallback {
+        TimeoutFallback::None => {
+            // Return Result for basic timeout usage
+            quote! {
+                {
+                    use tokio::time::timeout;
+                    use std::time::Duration;
+                    
+                    // Convert the numeric duration to seconds
+                    let duration_secs = Duration::from_secs(#duration as u64);
+                    
+                    // Check if we're inside a runtime or need to create one
+                    if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                        // We're in a runtime, use the current handle to enter it
+                        let _guard = handle.enter();
+                        
+                        // Wrap the body expression in a task and apply timeout
+                        tokio::task::block_in_place(|| {
+                            handle.block_on(async {
+                                // Create a task that performs the evaluation
+                                let task = tokio::task::spawn(async move {
+                                    #body
+                                });
+                                
+                                // Apply timeout to the task
+                                match timeout(duration_secs, task).await {
+                                    Ok(Ok(value)) => Ok(value),
+                                    Ok(Err(_)) => Err(format!("Task panicked")),
+                                    Err(_) => Err(format!("Operation timed out after {} seconds", #duration)),
+                                }
+                            })
+                        })
+                    } else {
+                        // Not in a runtime, create a new one
+                        tokio::runtime::Runtime::new()
+                            .unwrap()
+                            .block_on(async {
+                                // Create a task that performs the evaluation
+                                let task = tokio::task::spawn(async move {
+                                    #body
+                                });
+                                
+                                // Apply timeout to the task
+                                match timeout(duration_secs, task).await {
+                                    Ok(Ok(value)) => Ok(value),
+                                    Ok(Err(_)) => Err(format!("Task panicked")),
+                                    Err(_) => Err(format!("Operation timed out after {} seconds", #duration)),
+                                }
+                            })
+                    }
+                }
+            }
+        },
+        TimeoutFallback::Else(fallback_expr) => {
+            // Use custom fallback on timeout, but wrap in Result
+            quote! {
+                {
+                    use tokio::time::timeout;
+                    use std::time::Duration;
+                    
+                    // Convert the numeric duration to seconds
+                    let duration_secs = Duration::from_secs(#duration as u64);
+                    
+                    // Check if we're inside a runtime or need to create one
+                    if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                        // We're in a runtime, use the current handle to enter it
+                        let _guard = handle.enter();
+                        
+                        // Wrap the body expression in a task and apply timeout
+                        tokio::task::block_in_place(|| {
+                            handle.block_on(async {
+                                // Create a task that performs the evaluation
+                                let task = tokio::task::spawn(async move {
+                                    #body
+                                });
+                                
+                                // Apply timeout to the task
+                                match timeout(duration_secs, task).await {
+                                    Ok(Ok(value)) => Ok(value),
+                                    Ok(Err(_)) => Err({
+                                        #fallback_expr
+                                    }),
+                                    Err(_) => Err({
+                                        #fallback_expr
+                                    }),
+                                }
+                            })
+                        })
+                    } else {
+                        // Not in a runtime, create a new one
+                        tokio::runtime::Runtime::new()
+                            .unwrap()
+                            .block_on(async {
+                                // Create a task that performs the evaluation
+                                let task = tokio::task::spawn(async move {
+                                    #body
+                                });
+                                
+                                // Apply timeout to the task
+                                match timeout(duration_secs, task).await {
+                                    Ok(Ok(value)) => Ok(value),
+                                    Ok(Err(_)) => Err({
+                                        #fallback_expr
+                                    }),
+                                    Err(_) => Err({
+                                        #fallback_expr
+                                    }),
+                                }
+                            })
+                    }
+                }
+            }
+        }
+    };
+    
+    TokenStream::from(expanded)
+}
+
+
+
+
+// pub fn timeout_w(input: TokenStream) -> TokenStream {
+//     let TimeoutInput { duration, body, fallback } = parse_macro_input!(input as TimeoutInput);
+    
+//     let expanded = match fallback {
+//         TimeoutFallback::None => {
+//             // Return Result for basic timeout usage (with a generic error string)
+//             quote! {
+//                 {
+//                     use tokio::time::timeout;
+//                     use std::time::Duration;
+                    
+//                     // Convert the numeric duration to seconds
+//                     let duration_secs = Duration::from_secs(#duration as u64);
+                    
+//                     // Check if we're inside a runtime or need to create one
+//                     if let Ok(handle) = tokio::runtime::Handle::try_current() {
+//                         // We're in a runtime, use the current handle to enter it
+//                         let _guard = handle.enter();
+                        
+//                         // Wrap the body expression in a task and apply timeout
+//                         tokio::task::block_in_place(|| {
+//                             handle.block_on(async {
+//                                 // Create a task that performs the evaluation
+//                                 let task = tokio::task::spawn(async move {
+//                                     #body
+//                                 });
+                                
+//                                 // Apply timeout to the task
+//                                 match timeout(duration_secs, task).await {
+//                                     Ok(Ok(value)) => Ok(value),
+//                                     Ok(Err(_)) => Err(format!("Task panicked")),
+//                                     Err(_) => Err(format!("Operation timed out after {} seconds", #duration)),
+//                                 }
+//                             })
+//                         })
+//                     } else {
+//                         // Not in a runtime, create a new one
+//                         tokio::runtime::Runtime::new()
+//                             .unwrap()
+//                             .block_on(async {
+//                                 // Create a task that performs the evaluation
+//                                 let task = tokio::task::spawn(async move {
+//                                     #body
+//                                 });
+                                
+//                                 // Apply timeout to the task
+//                                 match timeout(duration_secs, task).await {
+//                                     Ok(Ok(value)) => Ok(value),
+//                                     Ok(Err(_)) => Err(format!("Task panicked")),
+//                                     Err(_) => Err(format!("Operation timed out after {} seconds", #duration)),
+//                                 }
+//                             })
+//                     }
+//                 }
+//             }
+//         },
+//         TimeoutFallback::Else(fallback_expr) => {
+//             // Use custom fallback on timeout
+//             quote! {
+//                 {
+//                     use tokio::time::timeout;
+//                     use std::time::Duration;
+                    
+//                     // Convert the numeric duration to seconds
+//                     let duration_secs = Duration::from_secs(#duration as u64);
+                    
+//                     // Check if we're inside a runtime or need to create one
+//                     if let Ok(handle) = tokio::runtime::Handle::try_current() {
+//                         // We're in a runtime, use the current handle to enter it
+//                         let _guard = handle.enter();
+                        
+//                         // Wrap the body expression in a task and apply timeout
+//                         tokio::task::block_in_place(|| {
+//                             handle.block_on(async {
+//                                 // Create a task that performs the evaluation
+//                                 let task = tokio::task::spawn(async move {
+//                                     #body
+//                                 });
+                                
+//                                 // Apply timeout to the task
+//                                 match timeout(duration_secs, task).await {
+//                                     Ok(Ok(value)) => Ok(value),
+//                                     Ok(Err(_)) => Err({
+//                                         #fallback_expr
+//                                     }),
+//                                     Err(_) => Err({
+//                                         #fallback_expr
+//                                     }),
+//                                 }
+//                             })
+//                         })
+//                     } else {
+//                         // Not in a runtime, create a new one
+//                         tokio::runtime::Runtime::new()
+//                             .unwrap()
+//                             .block_on(async {
+//                                 // Create a task that performs the evaluation
+//                                 let task = tokio::task::spawn(async move {
+//                                     #body
+//                                 });
+                                
+//                                 // Apply timeout to the task
+//                                 match timeout(duration_secs, task).await {
+//                                     Ok(Ok(value)) => Ok(value),
+//                                     Ok(Err(_)) => Err({
+//                                         #fallback_expr
+//                                     }),
+//                                     Err(_) => Err({
+//                                         #fallback_expr
+//                                     }),
+//                                 }
+//                             })
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//     };
+    
+//     TokenStream::from(expanded)
+// }

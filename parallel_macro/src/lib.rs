@@ -18,3 +18,8 @@ pub fn timeout(input: TokenStream) -> TokenStream {
 pub fn timeout_fallback(input: TokenStream) -> TokenStream {
     timeout::timeout_fallback(input)
 }
+
+#[proc_macro]
+pub fn timeout_value(input: TokenStream) -> TokenStream {
+    timeout::timeout_value(input)
+}
