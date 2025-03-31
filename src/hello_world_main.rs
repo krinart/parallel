@@ -108,6 +108,14 @@ async fn get_data_3(t: u64) -> Result<u64, CustomError> {
     Ok(t)
 }
 
+fn do_fallback() -> Result<u64, CustomError> {
+    Ok(123)
+}
+
+async fn do_fallback_2() -> Result<u64, CustomError> {
+    Ok(123)
+}
+
 #[tokio::main]
 async fn main() {
     
@@ -117,8 +125,21 @@ async fn main() {
         get_data_3(1100)
     } else {
         println!("Timeout happened?!");
-        Ok(123)
-        // Err(CustomError{error: String::from("timeout!!")})
+        match timeout_with_result!(1 {
+            get_data_3(1100)
+        } else {
+            println!("Timeout happened?!");
+            Ok(123)
+            // Err(CustomError{error: String::from("timeout!!")})
+            // do_fallback();
+            // do_fallback_2().await
+        }) {
+            TimeoutResult::Success(val) => Ok(val),
+            // function error
+            TimeoutResult::Error(err) => Err(err),
+            // timeout error
+            TimeoutResult::TimedOut => Err(CustomError{error: String::from("should never happen")}),
+        }
     });
 
     match r2 {
