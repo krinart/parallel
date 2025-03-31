@@ -1,7 +1,9 @@
+extern crate proc_macro;
 use parallel_macro::parallel;
 use parallel_macro::timeout;
 use parallel_macro::timeout_fallback;
 use parallel_macro::timeout_value;
+use parallel_macro::my_test_timeout;
 use std::time::Duration;
 
 async fn get_posts(user_id: u64) -> Vec<String> {
@@ -47,7 +49,7 @@ async fn test_parallel_timeout() {
     
     
     // Case #2: Timeout
-    let result: Result<i32, String> = timeout!(1, { 
+    let result: Result<i32, String> = timeout!( 1 { 
         get_data()
     } else {
         String::from("too long!")
@@ -62,7 +64,7 @@ async fn test_parallel_timeout() {
     }
 
     // Case #3: Timeout with value fallback
-    let result3: i32 = timeout_fallback!(1, { 
+    let result3: i32 = timeout_fallback!( 1  { 
         get_data()
     } else {
         42
@@ -70,7 +72,7 @@ async fn test_parallel_timeout() {
     println!("result3: {}", result3);
 
     // # Case4: Timeout with value
-    let result4  = timeout_value!(1, { 
+    let result4  = timeout_value!( 1  { 
         42
     } else {
         String::from("too long #2!")
@@ -86,7 +88,7 @@ async fn test_parallel_timeout() {
     }
 
     // Case #5: Timeout with parallel
-    let result5: Result<(Vec<String>, Vec<String>), String>  = timeout_value!(1, { 
+    let result5: Result<(Vec<String>, Vec<String>), String>  = timeout_value!( 1  { 
         parallel! { 
             get_posts(user_id), 
             get_followers(user_id),
@@ -103,29 +105,6 @@ async fn test_parallel_timeout() {
             println!("timeout2: {}", err);
         }
     }
-
-
-
-    
-
-   
-}
-
-#[macro_export]
-macro_rules! my_await {
-    ($future:expr) => {
-        match tokio::runtime::Handle::try_current() {
-            Ok(handle) => {
-                tokio::task::block_in_place(|| handle.block_on(async { $future.await }))
-            },
-            Err(_) => {
-                tokio::runtime::Runtime::new().unwrap().block_on(async { $future.await })
-            }
-        }
-    };
-    ($future:expr, $timeout:expr) => {
-        $timeout
-    };
 }
 
 
@@ -134,13 +113,10 @@ async fn main() {
     
     test_parallel_timeout().await;
 
+    // my_test_timeout!( 1 {
+    // } else {
+    // });
 
-    // let f = get_data();
-    // let res = my_await!(f);
-    // println!("{}", res);
-
-    // let f2 = get_data();
-    // let res2 = my_await!(f2, 1);
-    // println!("{}", res2);
+    println!("Finish");
     
 }
