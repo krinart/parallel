@@ -13,7 +13,7 @@ async fn get_followers(user_id: u64) -> Vec<String> {
 }
 
 async fn get_data() -> i32 {
-    tokio::time::sleep(Duration::from_millis(150)).await;
+    tokio::time::sleep(Duration::from_millis(1500)).await;
     100
 }
 
@@ -48,9 +48,13 @@ async fn main() {
     //     get_followers(user_id),
     // };
 
-    let result = timeout!(5, { 
-        get_data().await 
-    }); 
+    let result: Result<i32, i32> = timeout!(1, { 
+            get_data().await 
+        } else {
+            println!("Timeout occurred!");
+            42
+        }
+    ); 
     println!("{}", result);
 
 
