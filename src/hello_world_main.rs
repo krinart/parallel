@@ -1,5 +1,11 @@
 mod custom_error;
 
+#[cfg(test)]
+mod tests {
+    pub mod parallel_tests;
+    pub mod timeout_tests;
+}
+
 extern crate proc_macro;
 use parallel_macro::parallel;
 use parallel_macro::timeout;
@@ -12,12 +18,12 @@ use parallel_macro_core::TimeoutResult;
 use std::time::Duration;
 use custom_error::CustomError;
 
-async fn get_posts(user_id: u64) -> Vec<String> {
+pub async fn get_posts(user_id: u64) -> Vec<String> {
     tokio::time::sleep(Duration::from_millis(1100)).await;
     vec![format!("Post 1 for user {}", user_id), format!("Post 2 for user {}", user_id)]
 }
 
-async fn get_followers(user_id: u64) -> Vec<String> {
+pub async fn get_followers(user_id: u64) -> Vec<String> {
     tokio::time::sleep(Duration::from_millis(150)).await;
     vec![format!("Follower 1 of user {}", user_id), format!("Follower 2 of user {}", user_id)]
 }
